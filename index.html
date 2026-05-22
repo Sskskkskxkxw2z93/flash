@@ -38,7 +38,6 @@
 
   .logo { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--text); letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
   .logo-dot { color: var(--accent); }
-  .sync-status { font-size: 11px; color: var(--text-muted); margin-top: 6px; min-height: 16px; transition: color 0.3s; }
 
   .sidebar-section-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-muted); padding: 16px 20px 6px; }
 
@@ -111,10 +110,10 @@
   .empty-title { font-size: 17px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
   .empty-desc { font-size: 14px; color: var(--text-muted); }
 
-  .study-bar { background: var(--surface); border-top: 1px solid var(--border); padding: 14px 36px; display: flex; align-items: center; gap: 12px; }
+  .study-bar { background: var(--surface); border-top: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; gap: 12px; }
 
-  .study-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 16px; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; color: var(--text); }
-  .study-btn:hover { background: var(--surface); box-shadow: var(--shadow); }
+  .study-btn { background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); padding: 9px 20px; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 0.15s, transform 0.1s; display: flex; align-items: center; gap: 7px; }
+  .study-btn:hover { opacity: 0.88; } .study-btn:active { transform: scale(0.97); }
 
   .study-progress { font-size: 13px; color: var(--text-muted); margin-left: auto; }
 
@@ -212,6 +211,51 @@
 
   .progress-bar-track { height: 3px; background: var(--border); border-radius: 99px; flex: 1; overflow: hidden; }
   .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s; }
+
+  /* ── Mobile ── */
+  @media (max-width: 640px) {
+    .app { flex-direction: column; min-height: 100svh; }
+    .sidebar { width: 100%; min-width: unset; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); flex-direction: column; overflow: hidden; }
+    .sidebar-header { padding: 14px 16px 12px; border-bottom: none; }
+    .logo { font-size: 20px; }
+    .sidebar-section-label { padding: 8px 16px 4px; }
+    .folder-list { padding: 0 8px 10px; display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .folder-list::-webkit-scrollbar { display: none; }
+    .folder-item { flex-shrink: 0; padding: 6px 13px; border-radius: 20px; gap: 7px; }
+    .folder-item .folder-delete-btn { display: none !important; }
+    .folder-icon { font-size: 15px; }
+    .folder-name { font-size: 13px; }
+    .folder-count { font-size: 10px; }
+    .btn-new-folder { display: none; }
+    .sidebar-divider { display: none; }
+    .mobile-fab { display: flex; position: fixed; bottom: 80px; right: 18px; z-index: 50; width: 50px; height: 50px; border-radius: 50%; background: var(--accent); color: white; border: none; font-size: 22px; align-items: center; justify-content: center; box-shadow: 0 4px 18px rgba(45,91,227,0.38); cursor: pointer; transition: transform 0.15s; }
+    .mobile-fab:active { transform: scale(0.92); }
+    .main { overflow: visible; min-height: 0; }
+    .main-header { padding: 14px 14px 12px; gap: 10px; }
+    .main-title { font-size: 20px; }
+    .main-subtitle { font-size: 12px; }
+    #addCardBtn { display: none !important; }
+    .main-content { padding: 10px 10px 96px; overflow-y: auto; }
+    .cards-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
+    .flashcard { min-height: 120px; }
+    .flashcard-inner { min-height: 120px; }
+    .flashcard-face { padding: 13px; }
+    .flashcard-text { font-size: 13px; }
+    .flashcard-label { font-size: 9px; }
+    .flashcard-actions { opacity: 1; }
+    .study-bar { padding: 10px 14px; gap: 10px; }
+    .study-btn { padding: 9px 16px; font-size: 13px; }
+    .progress-bar-track { display: none; }
+    .study-overlay { padding: 16px; align-items: flex-end; }
+    .study-session { padding: 28px 18px 24px; border-radius: 20px 20px 16px 16px; }
+    .study-card-container { padding: 24px 18px; min-height: 130px; }
+    .study-card-text { font-size: 18px; }
+    .answer-btn { padding: 10px 16px; font-size: 14px; }
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal { padding: 22px 18px; border-radius: 20px 20px 0 0; }
+    .no-folder { padding: 40px 20px; }
+  }
+  @media (min-width: 641px) { .mobile-fab { display: none !important; } }
 </style>
 </head>
 <body>
@@ -220,7 +264,6 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="logo">Flash<span class="logo-dot">.</span></div>
-      <div class="sync-status" id="syncStatus">Connecting…</div>
     </div>
     <div class="sidebar-section-label">Folders</div>
     <div class="folder-list" id="folderList"></div>
@@ -396,22 +439,18 @@
   // Debounce save so rapid edits don't hammer Firestore
   let saveTimer = null;
   function save() {
-    setSyncStatus('saving');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       try {
         await setDoc(DATA_DOC, { folders, cards });
-        setSyncStatus('saved');
       } catch(e) {
         console.error('Save failed', e);
-        setSyncStatus('error');
       }
     }, 600);
   }
 
   // ── Bootstrap: load once, then subscribe to live updates ──
   async function init() {
-    setSyncStatus('saving');
     try {
       const snap = await getDoc(DATA_DOC);
       if (snap.exists()) {
@@ -452,13 +491,11 @@
       const d = snapshot.data();
       folders = d.folders || [];
       cards   = d.cards   || {};
-      setSyncStatus('live');
       renderFolders();
       renderFolderView();
       setTimeout(() => setSyncStatus('saved'), 1500);
     }, err => {
       console.error('Live sync error', err);
-      setSyncStatus('error');
     });
   }
 
