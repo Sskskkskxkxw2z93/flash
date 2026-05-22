@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcards</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* KEEPING YOUR ORIGINAL STYLES */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #F7F5F0;
+  color: #1A1814;
+}
+
+.app {
+  display:flex;
+  min-height:100vh;
+}
+
+.sidebar {
+  width:260px;
+  background:white;
+  border-right:1px solid #ddd;
+  padding:20px;
+}
+
+.main {
+  flex:1;
+  padding:30px;
+}
+
+.folder-item {
+  padding:10px;
+  border-radius:8px;
+  cursor:pointer;
+  margin-bottom:6px;
+  background:#f3f3f3;
+}
+
+.folder-item.active {
+  background:#dfe7ff;
+}
+
+.flashcard {
+  background:white;
+  border-radius:12px;
+  border:1px solid #ddd;
+  padding:20px;
+  margin-bottom:16px;
+}
+
+button {
+  cursor:pointer;
+  border:none;
+  border-radius:8px;
+  padding:10px 16px;
+}
+
+.btn-primary {
+  background:#2D5BE3;
+  color:white;
+}
+
+textarea,input {
+  width:100%;
+  padding:12px;
+  margin-top:8px;
+  border-radius:8px;
+  border:1px solid #ccc;
+}
+
+.modal {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+
+.modal-content {
+  background:white;
+  padding:24px;
+  width:400px;
+  border-radius:12px;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="sidebar">
+    <h2>Flashcards</h2>
+    <br>
+
+    <div id="folderList"></div>
+
+    <br>
+
+    <button class="btn-primary" onclick="openFolderModal()">
+      + New Folder
+    </button>
+  </div>
+
+  <div class="main">
+    <h1 id="folderTitle">Select Folder</h1>
+
+    <br>
+
+    <button class="btn-primary" onclick="openCardModal()">
+      + Add Card
+    </button>
+
+    <br><br>
+
+    <div id="cardsContainer"></div>
+  </div>
+</div>
+
+<!-- Folder Modal -->
+<div class="modal" id="folderModal">
+  <div class="modal-content">
+    <h2>New Folder</h2>
+    <br>
+
+    <input id="folderInput" placeholder="Folder name">
+
+    <br><br>
+
+    <button class="btn-primary" onclick="saveFolder()">Save</button>
+  </div>
+</div>
+
+<!-- Card Modal -->
+<div class="modal" id="cardModal">
+  <div class="modal-content">
+    <h2>New Card</h2>
+
+    <br>
+
+    <textarea id="frontInput" placeholder="Question"></textarea>
+
+    <br><br>
+
+    <textarea id="backInput" placeholder="Answer"></textarea>
+
+    <br><br>
+
+    <button class="btn-primary" onclick="saveCard()">Save</button>
+  </div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// =====================================
+// PASTE YOUR FIREBASE CONFIG HERE
+// =====================================
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDLn5hL02geNL0eMU5xXXUKkrLKA0QZhfs",
+  authDomain: "slate-app-8fc4c.firebaseapp.com",
+  projectId: "slate-app-8fc4c",
+  storageBucket: "slate-app-8fc4c.firebasestorage.app",
+  messagingSenderId: "1038552772007",
+  appId: "1:1038552772007:web:855420f4f2181952cc9a82",
+  measurementId: "G-V8ZPJLT501"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// =====================================
+// UNIQUE USER ID
+// =====================================
+
+let APP_ID = localStorage.getItem("flashcards_user");
+
+if (!APP_ID) {
+  APP_ID = crypto.randomUUID();
+  localStorage.setItem("flashcards_user", APP_ID);
+}
+
+// =====================================
+// DATA
+// =====================================
+
+let folders = [];
+let cards = {};
+let activeFolderId = null;
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+// =====================================
+// LIVE SYNC
+// =====================================
+
+function startLiveSync() {
+  const ref = doc(db, "flashcards", APP_ID);
+
+  onSnapshot(ref, (snapshot) => {
+
+    if (!snapshot.exists()) {
+      save();
+      return;
+    }
+
+    const data = snapshot.data();
+
+    folders = data.folders || [];
+    cards = data.cards || {};
+
+    renderFolders();
+    renderCards();
+  });
+}
+
+// =====================================
+// SAVE TO CLOUD
+// =====================================
+
+async function save() {
+  await setDoc(doc(db, "flashcards", APP_ID), {
+    folders,
+    cards
+  });
+}
+
+// =====================================
+// RENDER FOLDERS
+// =====================================
+
+function renderFolders() {
+
+  const el = document.getElementById("folderList");
+
+  el.innerHTML = folders.map(folder => `
+    <div
+      class="folder-item ${folder.id === activeFolderId ? 'active' : ''}"
+      onclick="window.selectFolder('${folder.id}')"
+    >
+      ${folder.name}
+    </div>
+  `).join("");
+}
+
+// =====================================
+// SELECT FOLDER
+// =====================================
+
+window.selectFolder = function(id) {
+  activeFolderId = id;
+
+  const folder = folders.find(f => f.id === id);
+
+  document.getElementById("folderTitle").textContent = folder.name;
+
+  renderFolders();
+  renderCards();
+}
+
+// =====================================
+// RENDER CARDS
+// =====================================
+
+function renderCards() {
+
+  const container = document.getElementById("cardsContainer");
+
+  if (!activeFolderId) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const deck = cards[activeFolderId] || [];
+
+  container.innerHTML = deck.map(card => `
+    <div class="flashcard">
+      <h3>${card.front}</h3>
+      <br>
+      <p>${card.back}</p>
+    </div>
+  `).join("");
+}
+
+// =====================================
+// FOLDER MODAL
+// =====================================
+
+window.openFolderModal = function() {
+  document.getElementById("folderModal").style.display = "flex";
+}
+
+window.saveFolder = async function() {
+
+  const name = document.getElementById("folderInput").value.trim();
+
+  if (!name) return;
+
+  const id = uid();
+
+  folders.push({
+    id,
+    name
+  });
+
+  cards[id] = [];
+
+  await save();
+
+  document.getElementById("folderModal").style.display = "none";
+
+  document.getElementById("folderInput").value = "";
+
+  renderFolders();
+}
+
+// =====================================
+// CARD MODAL
+// =====================================
+
+window.openCardModal = function() {
+
+  if (!activeFolderId) {
+    alert("Select a folder first");
+    return;
+  }
+
+  document.getElementById("cardModal").style.display = "flex";
+}
+
+window.saveCard = async function() {
+
+  const front = document.getElementById("frontInput").value.trim();
+  const back = document.getElementById("backInput").value.trim();
+
+  if (!front || !back) return;
+
+  if (!cards[activeFolderId]) {
+    cards[activeFolderId] = [];
+  }
+
+  cards[activeFolderId].push({
+    id: uid(),
+    front,
+    back
+  });
+
+  await save();
+
+  document.getElementById("cardModal").style.display = "none";
+
+  document.getElementById("frontInput").value = "";
+  document.getElementById("backInput").value = "";
+
+  renderCards();
+}
+
+// =====================================
+// CLOSE MODALS ON BACKDROP CLICK
+// =====================================
+
+window.onclick = function(e) {
+
+  const folderModal = document.getElementById("folderModal");
+  const cardModal = document.getElementById("cardModal");
+
+  if (e.target === folderModal) {
+    folderModal.style.display = "none";
+  }
+
+  if (e.target === cardModal) {
+    cardModal.style.display = "none";
+  }
+}
+
+// =====================================
+// START APP
+// =====================================
+
+startLiveSync();
+
+</script>
+</body>
+</html>
